@@ -332,7 +332,7 @@ export function BookingPage() {
       </header>
 
       {/* Main */}
-      <main className="mx-auto -mt-8 max-w-4xl px-4 pb-20">
+      <main id="agendar" className="mx-auto -mt-8 max-w-4xl px-4 pb-20">
         <AnimatePresence mode="wait">
           {/* STEP 1 — Escolher serviço */}
           {step === "service" && (
@@ -588,6 +588,9 @@ export function BookingPage() {
       <footer className="border-t bg-card py-6 text-center text-sm text-muted-foreground">
         <p className="font-display">Karol Martins Studio</p>
         <p className="mt-1 text-xs">Atendimento premium em nail art</p>
+        <a className="mt-3 inline-block text-xs hover:text-foreground" href="/admin">
+          Area administrativa
+        </a>
       </footer>
     </div>
   );

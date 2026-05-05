@@ -18,7 +18,11 @@ export interface Servico {
   ativo: boolean;
 }
 
+export type AgendamentoStatus = "agendado" | "concluido" | "cancelado" | "nao_compareceu";
+export type UsuarioPerfil = "administrador" | "recepcionista";
+
 export interface Configuracoes {
+  id?: string;
   horario_inicio: string;   // "08:00:00"
   horario_fim: string;      // "18:00:00"
   intervalo_minutos: number;
@@ -37,7 +41,17 @@ export interface Agendamento {
   horario_inicio: string; // "HH:MM"
   horario_fim: string;    // "HH:MM"
   observacoes?: string;
-  status?: string;
+  status?: AgendamentoStatus;
+  created_at?: string;
+}
+
+export interface Usuario {
+  id?: string;
+  nome: string;
+  email: string;
+  perfil: UsuarioPerfil;
+  ativo: boolean;
+  created_at?: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
