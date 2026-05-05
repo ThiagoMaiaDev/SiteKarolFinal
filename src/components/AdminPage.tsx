@@ -67,8 +67,8 @@ function formatDate(date: string) {
   });
 }
 
-function canManage(perfil?: UsuarioPerfil) {
-  return perfil === "administrador";
+function canManage(perfil?: UsuarioPerfil, ativo = true) {
+  return ativo && perfil === "administrador";
 }
 
 function Field({
@@ -101,6 +101,8 @@ export function AdminPage() {
   const [isLogged, setIsLogged] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [signupName, setSignupName] = useState("");
+  const [isSignup, setIsSignup] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loadingLogin, setLoadingLogin] = useState(false);
 
@@ -147,14 +149,41 @@ export function AdminPage() {
       .eq("email", email)
       .maybeSingle();
 
-    setUsuarioAtual(
-      (data as Usuario | null) ?? {
-        nome: email.split("@")[0],
+    if (data) {
+      setUsuarioAtual(data as Usuario);
+      return;
+    }
+
+    const { count } = await supabase
+      .from("usuarios")
+      .select("id", { count: "exact", head: true });
+
+    if (count === 0) {
+      const primeiroAdmin = {
+        nome: signupName || email.split("@")[0],
         email,
-        perfil: "administrador",
+        perfil: "administrador" as UsuarioPerfil,
         ativo: true,
-      },
-    );
+      };
+
+      const { data: inserted } = await supabase
+        .from("usuarios")
+        .insert([primeiroAdmin])
+        .select()
+        .single();
+
+      setUsuarioAtual((inserted as Usuario | null) ?? primeiroAdmin);
+      setMessage("Primeiro administrador configurado automaticamente.");
+      return;
+    }
+
+    setUsuarioAtual({
+      nome: email.split("@")[0],
+      email,
+      perfil: "recepcionista",
+      ativo: false,
+    });
+    setMessage("Este email ainda nao esta cadastrado em Usuarios.");
   }
 
   async function loadAll() {
@@ -181,6 +210,25 @@ export function AdminPage() {
     setLoadingLogin(true);
     setLoginError("");
 
+    if (isSignup) {
+      const { data, error } = await supabase.auth.signUp({
+        email: loginEmail,
+        password: loginPassword,
+        options: {
+          data: { nome: signupName },
+        },
+      });
+
+      if (error) {
+        setLoginError("Nao foi possivel criar o primeiro administrador.");
+      } else if (!data.session) {
+        setLoginError("Conta criada. Confirme o email no Supabase/Auth e depois faca login.");
+      }
+
+      setLoadingLogin(false);
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
       email: loginEmail,
       password: loginPassword,
@@ -191,7 +239,7 @@ export function AdminPage() {
   }
 
   async function updateStatus(id: string | undefined, status: AgendamentoStatus) {
-    if (!id) return;
+    if (!id || !usuarioAtual?.ativo) return;
     await supabase.from("agendamentos").update({ status }).eq("id", id);
     await loadAll();
   }
@@ -216,7 +264,7 @@ export function AdminPage() {
 
   async function saveServico(event: FormEvent) {
     event.preventDefault();
-    if (!canManage(usuarioAtual?.perfil)) return;
+    if (!canManage(usuarioAtual?.perfil, usuarioAtual?.ativo)) return;
     setSaving(true);
 
     const foto_url = await uploadServicoImage();
@@ -242,13 +290,13 @@ export function AdminPage() {
   }
 
   async function toggleServico(servico: Servico) {
-    if (!canManage(usuarioAtual?.perfil)) return;
+    if (!canManage(usuarioAtual?.perfil, usuarioAtual?.ativo)) return;
     await supabase.from("servicos").update({ ativo: !servico.ativo }).eq("id", servico.id);
     await loadAll();
   }
 
   async function deleteServico(servico: Servico) {
-    if (!canManage(usuarioAtual?.perfil)) return;
+    if (!canManage(usuarioAtual?.perfil, usuarioAtual?.ativo)) return;
     if (!window.confirm(`Remover o servico "${servico.nome}"?`)) return;
     await supabase.from("servicos").delete().eq("id", servico.id);
     setMessage("Servico removido.");
@@ -257,7 +305,7 @@ export function AdminPage() {
 
   async function saveUsuario(event: FormEvent) {
     event.preventDefault();
-    if (!canManage(usuarioAtual?.perfil)) return;
+    if (!canManage(usuarioAtual?.perfil, usuarioAtual?.ativo)) return;
     setSaving(true);
 
     if (usuarioEditId) {
@@ -274,7 +322,7 @@ export function AdminPage() {
   }
 
   async function deleteUsuario(usuario: Usuario) {
-    if (!canManage(usuarioAtual?.perfil) || !usuario.id) return;
+    if (!canManage(usuarioAtual?.perfil, usuarioAtual?.ativo) || !usuario.id) return;
     if (!window.confirm(`Remover o usuario "${usuario.nome}" da tabela de permissoes?`)) return;
     await supabase.from("usuarios").delete().eq("id", usuario.id);
     setMessage("Usuario removido da tabela de permissoes.");
@@ -283,7 +331,7 @@ export function AdminPage() {
 
   async function saveConfig(event: FormEvent) {
     event.preventDefault();
-    if (!config || !canManage(usuarioAtual?.perfil)) return;
+    if (!config || !canManage(usuarioAtual?.perfil, usuarioAtual?.ativo)) return;
     setSaving(true);
 
     const payload = {
@@ -328,11 +376,23 @@ export function AdminPage() {
             <ShieldCheck className="mx-auto h-10 w-10 text-primary" />
             <h1 className="mt-3 font-display text-2xl font-semibold">Painel administrativo</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Login necessario para agenda, servicos, usuarios, configuracoes e dashboard.
+              {isSignup
+                ? "Crie o primeiro administrador. Depois ele podera cadastrar os demais usuarios."
+                : "Login necessario para agenda, servicos, usuarios, configuracoes e dashboard."}
             </p>
           </div>
 
           <div className="space-y-4">
+            {isSignup && (
+              <Field label="Nome">
+                <input
+                  className={inputClass()}
+                  value={signupName}
+                  onChange={(event) => setSignupName(event.target.value)}
+                  required
+                />
+              </Field>
+            )}
             <Field label="Email">
               <input
                 className={inputClass()}
@@ -356,8 +416,18 @@ export function AdminPage() {
           {loginError && <p className="mt-3 text-sm text-destructive">{loginError}</p>}
 
           <Button className="mt-6 w-full" variant="gold" type="submit" disabled={loadingLogin}>
-            {loadingLogin ? "Entrando..." : "Entrar"}
+            {loadingLogin ? "Aguarde..." : isSignup ? "Criar primeiro administrador" : "Entrar"}
           </Button>
+          <button
+            type="button"
+            className="mt-4 block w-full text-center text-sm text-primary hover:underline"
+            onClick={() => {
+              setIsSignup(!isSignup);
+              setLoginError("");
+            }}
+          >
+            {isSignup ? "Ja tenho acesso" : "Criar primeiro administrador"}
+          </button>
           <a className="mt-4 block text-center text-sm text-muted-foreground hover:text-foreground" href="/">
             Voltar para agendamento publico
           </a>
@@ -366,7 +436,7 @@ export function AdminPage() {
     );
   }
 
-  const admin = canManage(usuarioAtual?.perfil);
+  const admin = canManage(usuarioAtual?.perfil, usuarioAtual?.ativo);
 
   return (
     <div className="min-h-screen bg-background">
@@ -378,7 +448,11 @@ export function AdminPage() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="h-8 px-3">
-              {usuarioAtual?.perfil === "administrador" ? "Administrador" : "Recepcionista"}
+              {!usuarioAtual?.ativo
+                ? "Sem permissao"
+                : usuarioAtual?.perfil === "administrador"
+                  ? "Administrador"
+                  : "Recepcionista"}
             </Badge>
             <Button variant="outline" asChild>
               <a href="/">Agenda publica</a>
