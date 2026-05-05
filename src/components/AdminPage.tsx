@@ -9,6 +9,7 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Trash2,
   Users,
   XCircle,
 } from "lucide-react";
@@ -241,6 +242,13 @@ export function AdminPage() {
   async function updateStatus(id: string | undefined, status: AgendamentoStatus) {
     if (!id || !usuarioAtual?.ativo) return;
     await supabase.from("agendamentos").update({ status }).eq("id", id);
+    await loadAll();
+  }
+
+  async function deleteAgendamento(id: string | undefined) {
+    if (!id || !usuarioAtual?.ativo) return;
+    if (!window.confirm("Tem certeza que deseja excluir este agendamento permanentemente?")) return;
+    await supabase.from("agendamentos").delete().eq("id", id);
     await loadAll();
   }
 
@@ -507,7 +515,7 @@ export function AdminPage() {
 
             <section className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
               <Panel title="Agenda do dia">
-                <AgendaList agendamentos={agendaDia} onStatus={updateStatus} />
+                <AgendaList agendamentos={agendaDia} onStatus={updateStatus} onDelete={deleteAgendamento} />
               </Panel>
               <Panel title="Acoes rapidas">
                 <div className="grid gap-3">
@@ -537,7 +545,7 @@ export function AdminPage() {
                 />
               }
             >
-              <AgendaList agendamentos={agendamentos} onStatus={updateStatus} />
+              <AgendaList agendamentos={agendamentos} onStatus={updateStatus} onDelete={deleteAgendamento} />
             </Panel>
           </TabsContent>
 
@@ -786,9 +794,11 @@ function Panel({
 function AgendaList({
   agendamentos,
   onStatus,
+  onDelete,
 }: {
   agendamentos: Agendamento[];
   onStatus: (id: string | undefined, status: AgendamentoStatus) => void;
+  onDelete: (id: string | undefined) => void;
 }) {
   if (agendamentos.length === 0) {
     return <p className="py-8 text-center text-sm text-muted-foreground">Nenhum agendamento encontrado.</p>;
@@ -828,6 +838,10 @@ function AgendaList({
                 <Button size="sm" variant="destructive" onClick={() => onStatus(agendamento.id, "cancelado")}>
                   <XCircle />
                   Cancelar
+                </Button>
+                <Button size="sm" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => onDelete(agendamento.id)}>
+                  <Trash2 />
+                  Excluir
                 </Button>
               </div>
             </div>
