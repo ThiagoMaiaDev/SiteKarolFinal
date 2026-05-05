@@ -457,7 +457,7 @@ export function BookingPage() {
                     />
                     {config && (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Atendemos de segunda a sexta, das {config.horario_inicio.slice(0, 5)} às{" "}
+                        Atendemos de segunda a sábado, das {config.horario_inicio.slice(0, 5)} às{" "}
                         {config.horario_fim.slice(0, 5)}
                       </p>
                     )}
