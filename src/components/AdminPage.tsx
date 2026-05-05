@@ -248,13 +248,14 @@ export function AdminPage() {
     if (!servicoFile) return servicoForm.foto_url || null;
 
     const ext = servicoFile.name.split(".").pop() || "jpg";
-    const path = `servicos/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    // Caminho direto na raiz do bucket 'servicos' (sem prefixo duplicado)
+    const path = `${Date.now()}-${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from("servicos").upload(path, servicoFile, {
       upsert: true,
     });
 
     if (error) {
-      setMessage("Nao foi possivel enviar a imagem. Verifique o bucket 'servicos' no Supabase.");
+      setMessage(`Erro ao enviar imagem: ${error.message}`);
       return servicoForm.foto_url || null;
     }
 
@@ -558,11 +559,14 @@ export function AdminPage() {
                       <input className={inputClass()} type="number" min="0" step="0.01" value={servicoForm.valor} onChange={(e) => setServicoForm({ ...servicoForm, valor: e.target.value })} required />
                     </Field>
                   </div>
-                  <Field label="URL da imagem">
-                    <input className={inputClass()} value={servicoForm.foto_url ?? ""} onChange={(e) => setServicoForm({ ...servicoForm, foto_url: e.target.value })} />
+                  <Field label="URL da imagem (opcional)">
+                    <input className={inputClass()} value={servicoForm.foto_url ?? ""} onChange={(e) => setServicoForm({ ...servicoForm, foto_url: e.target.value })} placeholder="https://..." />
                   </Field>
                   <Field label="Upload de imagem">
                     <input className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-secondary file:px-3 file:py-2 file:text-sm" type="file" accept="image/*" onChange={(e) => setServicoFile(e.target.files?.[0] ?? null)} />
+                    {servicoFile && (
+                      <p className="mt-1 text-xs text-muted-foreground">Arquivo selecionado: {servicoFile.name}</p>
+                    )}
                   </Field>
                   <label className="flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={servicoForm.ativo} onChange={(e) => setServicoForm({ ...servicoForm, ativo: e.target.checked })} />
@@ -571,9 +575,9 @@ export function AdminPage() {
                   <div className="flex gap-2">
                     <Button type="submit" variant="gold" disabled={saving}>
                       <ImageUp />
-                      Salvar
+                      {saving ? "Salvando..." : "Salvar"}
                     </Button>
-                    <Button type="button" variant="outline" onClick={() => { setServicoForm(emptyServico); setServicoEditId(null); }}>
+                    <Button type="button" variant="outline" onClick={() => { setServicoForm(emptyServico); setServicoEditId(null); setServicoFile(null); }}>
                       Limpar
                     </Button>
                   </div>
